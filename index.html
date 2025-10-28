@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Type Scale Visualization</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 40px;
+      background: #fafafa;
+    }
+    h1, h2, h3 {
+      margin-bottom: 1.25em  
+    }
+    .controls {
+      display: flex;
+      margin-bottom: 1em;
+      flex-flow: column;
+      justify-content: left;
+  }
+    .label-input {
+      display: block;
+      margin-bottom: 1.5em
+    }
+    input[type="number"], select {
+      padding: 4px 6px;
+      font-size: 14px;
+    }
+    select {
+      min-width: 80px;
+    }
+    svg {
+      width: 100%;
+      height: auto;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      cursor: pointer;
+      margin: 2em 0;
+    }
+    .line {
+      fill: none;
+      stroke: #00e0e0;
+      stroke-width: 2.5px;
+    }
+    .dot {
+      fill: black;
+    }
+    .half-dot {
+      fill: white;
+      stroke: #00e0e0;
+      stroke-width: 2px;
+    }
+    .base-dot {
+      fill: black;
+      stroke: #00e0e0;
+      stroke-width: 3px;
+    }
+    .cursor-line {
+      stroke: black;
+      stroke-width: 1.5px;
+      stroke-dasharray: 4 2;
+    }
+    .label-graph {
+      font-size: 0.5em;
+      font-weight: 600;
+    }
+    .label-axis {
+      font-size: 0.6em;
+      font-weight: 400;
+     }
+    .tooltip {
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #ccc;
+      padding: 4px 6px;
+      border-radius: 4px;
+      pointer-events: none;
+      position: absolute;
+    }
+    #table-container {
+      margin: 80px 0 0 0;
+    }
+    table {
+      margin-top: 20px;
+      border-collapse: collapse;
+      width: 200px;
+    }
+    td, th {
+      border: 1px solid #ccc;
+      padding: 4px 8px;
+      text-align: right;
+    }
+    th {
+      background: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Type Scale Visualization</h1>
+  
+  <div class="controls">
+    <label class="label-input">Base font size (in mm):
+      <input type="number" id="baseSizeInput" value="12" min="1" step="1">
+    </label>
+    <label class="label-input">Step (position) of base font size:
+      <select id="baseStepSelect"></select>
+    </label>
+  </div>
+
+  <p>Hover over the graph to see the value at each step and click to copy!</p>
+
+  <svg id="chart" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"></svg>
+
+  <div id="table-container">
+    <h2>Type scale table</h2>
+    <table id="type-table">
+      <thead>
+        <tr><th>Step</th><th>Font Size</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const xFactor = 0.5176;
+    const capFactor = 0.7168;
+    const ratio = capFactor / xFactor; // ~1.38485
+    const maxStep = 11;
+
+    const svg = d3.select("#chart");
+    const width = 800;
+    const height = 400;
+    const margin = { top: 20, right: 20, bottom: 60, left: 60 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    const x = d3.scaleLinear().domain([0, maxStep + 0.2]).range([0, innerWidth]);
+
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const yAxisGroup = g.append("g");
+    const xAxisGroup = g.append("g").attr("transform", `translate(0,${innerHeight})`);
+    const xLabel = g.append("text")
+      .attr("x", innerWidth / 2)
+      .attr("y", innerHeight + 40)
+      .attr("fill", "black")
+      .attr("text-anchor", "middle")
+      .attr("class", "label label-axis")
+      .text("steps");
+    const yLabel = g.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -innerHeight / 2)
+      .attr("y", -40)
+      .attr("fill", "black")
+      .attr("text-anchor", "middle")
+      .attr("class", "label-axis")
+      .text("font size");
+
+    const curveGroup = g.append("path").attr("class", "line");
+    const dotsGroup = g.append("g");
+    const labelsGroup = g.append("g");
+    const cursorLine = g.append("line")
+      .attr("class", "cursor-line")
+      .attr("y1", 0)
+      .attr("y2", innerHeight)
+      .style("display", "none");
+
+    const tooltip = d3.select("body").append("div")
+      .attr("class", "tooltip")
+      .style("display", "none");
+
+    const tableBody = d3.select("#type-table tbody");
+    const baseSizeInput = document.getElementById("baseSizeInput");
+    const baseStepSelect = document.getElementById("baseStepSelect");
+
+    // Populate dropdown (0–11)
+    for (let i = 0; i <= maxStep; i++) {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = i;
+      baseStepSelect.appendChild(opt);
+    }
+
+    function render() {
+      const baseSize = parseFloat(baseSizeInput.value);
+      const baseStep = parseInt(baseStepSelect.value);
+
+      const S = step => baseSize * Math.pow(ratio, step - baseStep);
+
+      const curvePoints = d3.range(0, maxStep + 0.05, 0.05).map(x => ({
+        step: x,
+        size: S(x)
+      }));
+
+      const fullSteps = d3.range(0, maxStep + 1).map(i => ({
+        step: i,
+        size: S(i)
+      }));
+
+      const halfSteps = d3.range(0.5, maxStep, 1).map(i => ({
+        step: i,
+        size: S(i)
+      }));
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(curvePoints, d => d.size)])
+        .range([innerHeight, 0]);
+
+      // Axes
+      xAxisGroup.call(
+        d3.axisBottom(x)
+          .ticks(maxStep * 2)
+          .tickFormat(d => (Number.isInteger(d) ? d : d.toFixed(1)))
+      );
+      yAxisGroup.call(d3.axisLeft(y));
+
+      // Curve
+      const line = d3.line().x(d => x(d.step)).y(d => y(d.size));
+      curveGroup.datum(curvePoints).attr("d", line);
+
+      // Dots
+      dotsGroup.selectAll("*").remove();
+
+      // Highlighted base dot
+      dotsGroup.append("circle")
+        .attr("class", "base-dot")
+        .attr("cx", x(baseStep))
+        .attr("cy", y(S(baseStep)))
+        .attr("r", 6);
+
+      // Full step dots
+      dotsGroup.selectAll(".dot")
+        .data(fullSteps)
+        .enter()
+        .append("circle")
+        .attr("class", "dot")
+        .attr("cx", d => x(d.step))
+        .attr("cy", d => y(d.size))
+        .attr("r", 4);
+
+      // Half step dots
+      dotsGroup.selectAll(".half-dot")
+        .data(halfSteps)
+        .enter()
+        .append("circle")
+        .attr("class", "half-dot")
+        .attr("cx", d => x(d.step))
+        .attr("cy", d => y(d.size))
+        .attr("r", 4);
+
+      // Labels
+      labelsGroup.selectAll("*").remove();
+      labelsGroup.selectAll(".label-full")
+        .data(fullSteps)
+        .enter()
+        .append("text")
+        .attr("x", d => x(d.step) + 5)
+        .attr("y", d => y(d.size) - 5)
+        .text(d => Math.round(d.size))
+        .attr("class", "label-graph")
+        .attr("fill", "#333");
+
+      labelsGroup.selectAll(".label-half")
+        .data(halfSteps)
+        .enter()
+        .append("text")
+        .attr("x", d => x(d.step) + 5)
+        .attr("y", d => y(d.size) - 5)
+        .text(d => Math.round(d.size))
+        .attr("class", "label-graph")
+        .attr("fill", "#00a0a0");
+
+      // Table
+      tableBody.selectAll("*").remove();
+      const allSteps = fullSteps.concat(halfSteps).sort((a, b) => a.step - b.step);
+      allSteps.forEach(d => {
+        tableBody.append("tr").html(`<td>${d.step}</td><td>${d.size.toFixed(2)}</td>`);
+      });
+
+      // Hover + click interactivity
+      svg.on("mousemove", (event) => {
+        const [mx] = d3.pointer(event, g.node());
+        if (mx < 0 || mx > innerWidth) return;
+        const stepValue = Math.round(x.invert(mx) * 4) / 4;
+        const sizeValue = S(stepValue);
+        cursorLine.attr("x1", x(stepValue)).attr("x2", x(stepValue)).style("display", null);
+        tooltip.style("display", "block")
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 25) + "px")
+          .html(`<strong>size:</strong> ${sizeValue.toFixed(2)}<br /><strong>step:</strong> ${stepValue.toFixed(2)}`);
+      });
+
+      svg.on("click", (event) => {
+        const [mx] = d3.pointer(event, g.node());
+        if (mx < 0 || mx > innerWidth) return;
+        const stepValue = Math.round(x.invert(mx) * 4) / 4;
+        const sizeValue = S(stepValue).toFixed(2);
+        navigator.clipboard.writeText(sizeValue).then(() => {
+          alert(`Copied font size: ${sizeValue}`);
+        });
+      });
+
+      svg.on("mouseleave", () => {
+        cursorLine.style("display", "none");
+        tooltip.style("display", "none");
+      });
+    }
+
+    // Initial render
+    render();
+
+    // Event listeners
+    baseSizeInput.addEventListener("input", render);
+    baseStepSelect.addEventListener("change", render);
+  </script>
+</body>
+</html>
