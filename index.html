@@ -12,17 +12,17 @@
       background: #fafafa;
     }
     h1, h2, h3 {
-      margin-bottom: 1.25em  
+      margin-bottom: 1.25em;
     }
     .controls {
       display: flex;
       margin-bottom: 1em;
       flex-flow: column;
       justify-content: left;
-  }
+    }
     .label-input {
       display: block;
-      margin-bottom: 1.5em
+      margin-bottom: 1.5em;
     }
     input[type="number"], select {
       padding: 4px 6px;
@@ -87,12 +87,13 @@
     table {
       margin-top: 20px;
       border-collapse: collapse;
-      width: 200px;
+      width: 100%;
     }
     td, th {
       border: 1px solid #ccc;
       padding: 4px 8px;
       text-align: right;
+      white-space: nowrap;
     }
     th {
       background: #f0f0f0;
@@ -119,203 +120,160 @@
     <h2>Type scale table</h2>
     <table id="type-table">
       <thead>
-        <tr><th>Step</th><th>Font Size</th></tr>
+        <tr>
+          <th>Step</th>
+          <th>Font Size (mm)</th>
+          <th>x-Height (mm)</th>
+          <th>Cap Height (mm)</th>
+          <th>Visus 0.1 (m)</th>
+          <th>Visus 0.3 (m)</th>
+        </tr>
       </thead>
       <tbody></tbody>
     </table>
   </div>
 
-  <script>
-    const xFactor = 0.5176;
-    const capFactor = 0.7168;
-    const ratio = capFactor / xFactor; // ~1.38485
-    const maxStep = 11;
+<script>
+  const xFactor = 0.5176;
+  const capFactor = 0.71680;
+  const ratio = capFactor / xFactor;
+  const maxStep = 11;
 
-    const svg = d3.select("#chart");
-    const width = 800;
-    const height = 400;
-    const margin = { top: 20, right: 20, bottom: 60, left: 60 };
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
+  const svg = d3.select("#chart");
+  const width = 800, height = 400;
+  const margin = { top: 20, right: 20, bottom: 60, left: 60 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+  const x = d3.scaleLinear().domain([0, maxStep + 0.2]).range([0, innerWidth]);
+  const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+  const yAxisGroup = g.append("g");
+  const xAxisGroup = g.append("g").attr("transform", `translate(0,${innerHeight})`);
+  g.append("text").attr("x", innerWidth / 2).attr("y", innerHeight + 40)
+    .attr("fill", "black").attr("text-anchor", "middle").attr("class", "label-axis").text("steps");
+  g.append("text").attr("transform", "rotate(-90)").attr("x", -innerHeight / 2).attr("y", -40)
+    .attr("fill", "black").attr("text-anchor", "middle").attr("class", "label-axis").text("font size");
 
-    const x = d3.scaleLinear().domain([0, maxStep + 0.2]).range([0, innerWidth]);
+  const curveGroup = g.append("path").attr("class", "line");
+  const dotsGroup = g.append("g");
+  const labelsGroup = g.append("g");
+  const cursorLine = g.append("line").attr("class", "cursor-line").attr("y1", 0).attr("y2", innerHeight).style("display", "none");
+  const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("display", "none");
+  const tableBody = d3.select("#type-table tbody");
+  const baseSizeInput = document.getElementById("baseSizeInput");
+  const baseStepSelect = document.getElementById("baseStepSelect");
+  for (let i = 0; i <= maxStep; i++) {
+    const opt = document.createElement("option");
+    opt.value = i; opt.textContent = i; baseStepSelect.appendChild(opt);
+  }
 
-    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+  function compensateViewingAngle(value) {
+    const viewingAngleDeg = 0;
+    const wB = viewingAngleDeg * Math.PI / 180;
+    return value / Math.cos(wB);
+  }
 
-    const yAxisGroup = g.append("g");
-    const xAxisGroup = g.append("g").attr("transform", `translate(0,${innerHeight})`);
-    const xLabel = g.append("text")
-      .attr("x", innerWidth / 2)
-      .attr("y", innerHeight + 40)
-      .attr("fill", "black")
-      .attr("text-anchor", "middle")
-      .attr("class", "label label-axis")
-      .text("steps");
-    const yLabel = g.append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("x", -innerHeight / 2)
-      .attr("y", -40)
-      .attr("fill", "black")
-      .attr("text-anchor", "middle")
-      .attr("class", "label-axis")
-      .text("font size");
+  function getVisusDistance(xHeight, visus = 0.1) {
+    const Lf = 0.7;
+    const Klv = Lf / visus;
+    const sW = 9;
+    const r = (sW / 60) * (Math.PI / 180);
+    const d_mm = xHeight / (2 * Math.tan((r * Klv) / 2));
+    return d_mm / 1000;
+  }
 
-    const curveGroup = g.append("path").attr("class", "line");
-    const dotsGroup = g.append("g");
-    const labelsGroup = g.append("g");
-    const cursorLine = g.append("line")
-      .attr("class", "cursor-line")
-      .attr("y1", 0)
-      .attr("y2", innerHeight)
-      .style("display", "none");
+  function getDistanceColor(distance) {
+    if (distance < 1) return "#ffb3b3";        // reddish pink
+    if (distance < 2) return "#ffd9b3";        // light orange
+    if (distance < 4) return "#fff5b3";        // light yellow
+    if (distance < 10) return "#d4f8b3";       // light green
+    return "#b3e0ff";                          // light blue
+  }
 
-    const tooltip = d3.select("body").append("div")
-      .attr("class", "tooltip")
-      .style("display", "none");
+  function render() {
+    const baseSize = parseFloat(baseSizeInput.value);
+    const baseStep = parseInt(baseStepSelect.value);
+    const S = step => baseSize * Math.pow(ratio, step - baseStep);
+    const xFromFont = fontSize => fontSize * xFactor;
+    const capFromFont = fontSize => fontSize * capFactor;
 
-    const tableBody = d3.select("#type-table tbody");
-    const baseSizeInput = document.getElementById("baseSizeInput");
-    const baseStepSelect = document.getElementById("baseStepSelect");
+    const curvePoints = d3.range(0, maxStep + 0.05, 0.05).map(x => ({ step: x, size: S(x) }));
+    const fullSteps = d3.range(0, maxStep + 1).map(i => ({ step: i, size: S(i) }));
+    const halfSteps = d3.range(0.5, maxStep, 1).map(i => ({ step: i, size: S(i) }));
 
-    // Populate dropdown (0–11)
-    for (let i = 0; i <= maxStep; i++) {
-      const opt = document.createElement("option");
-      opt.value = i;
-      opt.textContent = i;
-      baseStepSelect.appendChild(opt);
-    }
+    const y = d3.scaleLinear().domain([0, d3.max(curvePoints, d => d.size)]).range([innerHeight, 0]);
+    xAxisGroup.call(d3.axisBottom(x).ticks(maxStep * 2).tickFormat(d => (Number.isInteger(d) ? d : d.toFixed(1))));
+    yAxisGroup.call(d3.axisLeft(y));
 
-    function render() {
-      const baseSize = parseFloat(baseSizeInput.value);
-      const baseStep = parseInt(baseStepSelect.value);
+    const line = d3.line().x(d => x(d.step)).y(d => y(d.size));
+    curveGroup.datum(curvePoints).attr("d", line);
 
-      const S = step => baseSize * Math.pow(ratio, step - baseStep);
+    dotsGroup.selectAll("*").remove();
+    dotsGroup.append("circle").attr("class", "base-dot").attr("cx", x(baseStep)).attr("cy", y(S(baseStep))).attr("r", 6);
+    dotsGroup.selectAll(".dot").data(fullSteps).enter().append("circle")
+      .attr("class", "dot").attr("cx", d => x(d.step)).attr("cy", d => y(d.size)).attr("r", 4);
+    dotsGroup.selectAll(".half-dot").data(halfSteps).enter().append("circle")
+      .attr("class", "half-dot").attr("cx", d => x(d.step)).attr("cy", d => y(d.size)).attr("r", 4);
 
-      const curvePoints = d3.range(0, maxStep + 0.05, 0.05).map(x => ({
-        step: x,
-        size: S(x)
-      }));
+    labelsGroup.selectAll("*").remove();
+    labelsGroup.selectAll(".label-full").data(fullSteps).enter().append("text")
+      .attr("x", d => x(d.step) + 5).attr("y", d => y(d.size) - 5)
+      .text(d => Math.round(d.size)).attr("class", "label-graph").attr("fill", "#333");
+    labelsGroup.selectAll(".label-half").data(halfSteps).enter().append("text")
+      .attr("x", d => x(d.step) + 5).attr("y", d => y(d.size) - 5)
+      .text(d => Math.round(d.size)).attr("class", "label-graph").attr("fill", "#00a0a0");
 
-      const fullSteps = d3.range(0, maxStep + 1).map(i => ({
-        step: i,
-        size: S(i)
-      }));
-
-      const halfSteps = d3.range(0.5, maxStep, 1).map(i => ({
-        step: i,
-        size: S(i)
-      }));
-
-      const y = d3.scaleLinear()
-        .domain([0, d3.max(curvePoints, d => d.size)])
-        .range([innerHeight, 0]);
-
-      // Axes
-      xAxisGroup.call(
-        d3.axisBottom(x)
-          .ticks(maxStep * 2)
-          .tickFormat(d => (Number.isInteger(d) ? d : d.toFixed(1)))
+    // Table update
+    tableBody.selectAll("*").remove();
+    const allSteps = fullSteps.concat(halfSteps).sort((a, b) => a.step - b.step);
+    allSteps.forEach(d => {
+      const fontSize = d.size;
+      const xHeight = xFromFont(fontSize);
+      const capHeight = capFromFont(fontSize);
+      const visus01 = getVisusDistance(xHeight, 0.1);
+      const visus03 = getVisusDistance(xHeight, 0.3);
+      const color01 = getDistanceColor(visus01);
+      const color03 = getDistanceColor(visus03);
+      tableBody.append("tr").html(
+        `<td>${d.step}</td>
+         <td>${fontSize.toFixed(2)}</td>
+         <td>${xHeight.toFixed(2)}</td>
+         <td>${capHeight.toFixed(2)}</td>
+         <td style="background:${color01}">${visus01.toFixed(2)}</td>
+         <td style="background:${color03}">${visus03.toFixed(2)}</td>`
       );
-      yAxisGroup.call(d3.axisLeft(y));
+    });
 
-      // Curve
-      const line = d3.line().x(d => x(d.step)).y(d => y(d.size));
-      curveGroup.datum(curvePoints).attr("d", line);
+    svg.on("mousemove", (event) => {
+      const [mx] = d3.pointer(event, g.node());
+      if (mx < 0 || mx > innerWidth) return;
+      const stepValue = Math.round(x.invert(mx) * 4) / 4;
+      const sizeValue = S(stepValue);
+      cursorLine.attr("x1", x(stepValue)).attr("x2", x(stepValue)).style("display", null);
+      tooltip.style("display", "block")
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 25) + "px")
+        .html(`<strong>size:</strong> ${sizeValue.toFixed(2)} mm<br /><strong>step:</strong> ${stepValue.toFixed(2)}`);
+    });
 
-      // Dots
-      dotsGroup.selectAll("*").remove();
-
-      // Highlighted base dot
-      dotsGroup.append("circle")
-        .attr("class", "base-dot")
-        .attr("cx", x(baseStep))
-        .attr("cy", y(S(baseStep)))
-        .attr("r", 6);
-
-      // Full step dots
-      dotsGroup.selectAll(".dot")
-        .data(fullSteps)
-        .enter()
-        .append("circle")
-        .attr("class", "dot")
-        .attr("cx", d => x(d.step))
-        .attr("cy", d => y(d.size))
-        .attr("r", 4);
-
-      // Half step dots
-      dotsGroup.selectAll(".half-dot")
-        .data(halfSteps)
-        .enter()
-        .append("circle")
-        .attr("class", "half-dot")
-        .attr("cx", d => x(d.step))
-        .attr("cy", d => y(d.size))
-        .attr("r", 4);
-
-      // Labels
-      labelsGroup.selectAll("*").remove();
-      labelsGroup.selectAll(".label-full")
-        .data(fullSteps)
-        .enter()
-        .append("text")
-        .attr("x", d => x(d.step) + 5)
-        .attr("y", d => y(d.size) - 5)
-        .text(d => Math.round(d.size))
-        .attr("class", "label-graph")
-        .attr("fill", "#333");
-
-      labelsGroup.selectAll(".label-half")
-        .data(halfSteps)
-        .enter()
-        .append("text")
-        .attr("x", d => x(d.step) + 5)
-        .attr("y", d => y(d.size) - 5)
-        .text(d => Math.round(d.size))
-        .attr("class", "label-graph")
-        .attr("fill", "#00a0a0");
-
-      // Table
-      tableBody.selectAll("*").remove();
-      const allSteps = fullSteps.concat(halfSteps).sort((a, b) => a.step - b.step);
-      allSteps.forEach(d => {
-        tableBody.append("tr").html(`<td>${d.step}</td><td>${d.size.toFixed(2)}</td>`);
+    svg.on("click", (event) => {
+      const [mx] = d3.pointer(event, g.node());
+      if (mx < 0 || mx > innerWidth) return;
+      const stepValue = Math.round(x.invert(mx) * 4) / 4;
+      const sizeValue = S(stepValue).toFixed(2);
+      navigator.clipboard.writeText(sizeValue).then(() => {
+        alert(`Copied font size: ${sizeValue} mm`);
       });
+    });
 
-      // Hover + click interactivity
-      svg.on("mousemove", (event) => {
-        const [mx] = d3.pointer(event, g.node());
-        if (mx < 0 || mx > innerWidth) return;
-        const stepValue = Math.round(x.invert(mx) * 4) / 4;
-        const sizeValue = S(stepValue);
-        cursorLine.attr("x1", x(stepValue)).attr("x2", x(stepValue)).style("display", null);
-        tooltip.style("display", "block")
-          .style("left", (event.pageX + 10) + "px")
-          .style("top", (event.pageY - 25) + "px")
-          .html(`<strong>size:</strong> ${sizeValue.toFixed(2)}<br /><strong>step:</strong> ${stepValue.toFixed(2)}`);
-      });
+    svg.on("mouseleave", () => {
+      cursorLine.style("display", "none");
+      tooltip.style("display", "none");
+    });
+  }
 
-      svg.on("click", (event) => {
-        const [mx] = d3.pointer(event, g.node());
-        if (mx < 0 || mx > innerWidth) return;
-        const stepValue = Math.round(x.invert(mx) * 4) / 4;
-        const sizeValue = S(stepValue).toFixed(2);
-        navigator.clipboard.writeText(sizeValue).then(() => {
-          alert(`Copied font size: ${sizeValue}`);
-        });
-      });
-
-      svg.on("mouseleave", () => {
-        cursorLine.style("display", "none");
-        tooltip.style("display", "none");
-      });
-    }
-
-    // Initial render
-    render();
-
-    // Event listeners
-    baseSizeInput.addEventListener("input", render);
-    baseStepSelect.addEventListener("change", render);
-  </script>
+  render();
+  baseSizeInput.addEventListener("input", render);
+  baseStepSelect.addEventListener("change", render);
+</script>
 </body>
 </html>
