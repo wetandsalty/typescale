@@ -103,14 +103,14 @@
 <body>
   <h1>Type Scale Visualization</h1>
   
-  <div class="controls">
+  <!-- div class="controls">
     <label class="label-input">Base font size (in mm):
       <input type="number" id="baseSizeInput" value="12" min="1" step="1">
     </label>
     <label class="label-input">Step (position) of base font size:
       <select id="baseStepSelect"></select>
     </label>
-  </div>
+  </div -->
 
   <p>Hover over the graph to see the value at each step and click to copy!</p>
 
@@ -137,7 +137,7 @@
   const xFactor = 0.5176;
   const capFactor = 0.71680;
   const ratio = capFactor / xFactor;
-  const maxStep = 11;
+  const maxStep = 12;
 
   const svg = d3.select("#chart");
   const width = 800, height = 400;
@@ -159,12 +159,12 @@
   const cursorLine = g.append("line").attr("class", "cursor-line").attr("y1", 0).attr("y2", innerHeight).style("display", "none");
   const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("display", "none");
   const tableBody = d3.select("#type-table tbody");
-  const baseSizeInput = document.getElementById("baseSizeInput");
-  const baseStepSelect = document.getElementById("baseStepSelect");
-  for (let i = 0; i <= maxStep; i++) {
+  // const baseSizeInput = document.getElementById("baseSizeInput");
+  // const baseStepSelect = document.getElementById("baseStepSelect");
+  /* for (let i = 1; i <= maxStep; i++) {
     const opt = document.createElement("option");
     opt.value = i; opt.textContent = i; baseStepSelect.appendChild(opt);
-  }
+  } */
 
   function compensateViewingAngle(value) {
     const viewingAngleDeg = 0;
@@ -190,8 +190,8 @@
   }
 
   function render() {
-    const baseSize = parseFloat(baseSizeInput.value);
-    const baseStep = parseInt(baseStepSelect.value);
+    const baseSize = 12; //parseFloat(baseSizeInput.value);
+    const baseStep = 1; //parseInt(baseStepSelect.value);
     const S = step => baseSize * Math.pow(ratio, step - baseStep);
     const xFromFont = fontSize => fontSize * xFactor;
     const capFromFont = fontSize => fontSize * capFactor;
@@ -272,8 +272,8 @@
   }
 
   render();
-  baseSizeInput.addEventListener("input", render);
-  baseStepSelect.addEventListener("change", render);
+  // baseSizeInput.addEventListener("input", render);
+  // baseStepSelect.addEventListener("change", render);
 </script>
 </body>
 </html>
