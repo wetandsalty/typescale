@@ -81,13 +81,20 @@
       pointer-events: none;
       position: absolute;
     }
-    #table-container {
+    .table{
       margin: 80px 0 0 0;
+    }
+    #table-container {
+      margin: 0 0 0 0;
+      overflow-x: auto;        /* allow horizontal scroll */
+      -webkit-overflow-scrolling: touch; /* smoother on mobile */
     }
     table {
       margin-top: 20px;
       border-collapse: collapse;
-      width: 100%;
+      /* allow table to be wider than viewport so container can scroll */
+      width: max-content;
+      min-width: 100%;
     }
     td, th {
       border: 1px solid #ccc;
@@ -116,28 +123,34 @@
 
   <svg id="chart" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"></svg>
 
-  <div id="table-container">
+  <section class="table">
     <h2>Type scale table</h2>
-    <table id="type-table">
-      <thead>
-        <tr>
-          <th>Step</th>
-          <th>Font Size (mm)</th>
-          <th>x-Height (mm)</th>
-          <th>Cap Height (mm)</th>
-          <th>Visus 0.1 (m)</th>
-          <th>Visus 0.3 (m)</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+    <div id="table-container">
+      <table id="type-table">
+        <thead>
+          <tr>
+            <th>Step</th>
+            <th>Font Size (mm)</th>
+            <th>Font Size (pt)</th>
+            <th>Line Height (mm)</th>
+            <th>Line Height (pt)</th>
+            <th>x-Height (mm)</th>
+            <th>Cap Height (mm)</th>
+            <th>Visus 0.1 (m)</th>
+            <th>Visus 0.3 (m)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
 
 <script>
   const xFactor = 0.5176;
   const capFactor = 0.71680;
   const ratio = capFactor / xFactor;
   const maxStep = 12;
+  const mmToPt = 2.8346;
 
   const svg = d3.select("#chart");
   const width = 800, height = 400;
@@ -227,6 +240,8 @@
     const allSteps = fullSteps.concat(halfSteps).sort((a, b) => a.step - b.step);
     allSteps.forEach(d => {
       const fontSize = d.size;
+      const lineHeightMm = fontSize * 1.2;
+      const lineHeightPt = lineHeightMm * mmToPt;
       const xHeight = xFromFont(fontSize);
       const capHeight = capFromFont(fontSize);
       const visus01 = getVisusDistance(xHeight, 0.1);
@@ -235,7 +250,10 @@
       const color03 = getDistanceColor(visus03);
       tableBody.append("tr").html(
         `<td>${d.step}</td>
-         <td>${fontSize.toFixed(2)}</td>
+         <td>${fontSize.toFixed(0)}</td>
+         <td>${(fontSize * mmToPt).toFixed(2)}</td>
+         <td>${lineHeightMm.toFixed(0)}</td>
+         <td>${lineHeightPt.toFixed(2)}</td>
          <td>${xHeight.toFixed(2)}</td>
          <td>${capHeight.toFixed(2)}</td>
          <td style="background:${color01}">${visus01.toFixed(2)}</td>
