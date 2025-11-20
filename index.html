@@ -86,13 +86,12 @@
     }
     #table-container {
       margin: 0 0 0 0;
-      overflow-x: auto;        /* allow horizontal scroll */
-      -webkit-overflow-scrolling: touch; /* smoother on mobile */
+      overflow-x: auto;   
+      -webkit-overflow-scrolling: touch; 
     }
     table {
       margin-top: 20px;
       border-collapse: collapse;
-      /* allow table to be wider than viewport so container can scroll */
       width: max-content;
       min-width: 100%;
     }
@@ -235,7 +234,7 @@
       .attr("x", d => x(d.step) + 5).attr("y", d => y(d.size) - 5)
       .text(d => Math.round(d.size)).attr("class", "label-graph").attr("fill", "#00a0a0");
 
-    // Table update
+    /*
     tableBody.selectAll("*").remove();
     const allSteps = fullSteps.concat(halfSteps).sort((a, b) => a.step - b.step);
     allSteps.forEach(d => {
@@ -248,6 +247,37 @@
       const visus03 = getVisusDistance(xHeight, 0.3);
       const color01 = getDistanceColor(visus01);
       const color03 = getDistanceColor(visus03);
+      tableBody.append("tr").html(
+        `<td>${d.step}</td>
+         <td>${fontSize.toFixed(0)}</td>
+         <td>${(fontSize * mmToPt).toFixed(2)}</td>
+         <td>${lineHeightMm.toFixed(0)}</td>
+         <td>${lineHeightPt.toFixed(2)}</td>
+         <td>${xHeight.toFixed(2)}</td>
+         <td>${capHeight.toFixed(2)}</td>
+         <td style="background:${color01}">${visus01.toFixed(2)}</td>
+         <td style="background:${color03}">${visus03.toFixed(2)}</td>`
+      );
+    });
+    */
+
+    // Fixed step 0 to 8mm font size
+    // Updates table
+    tableBody.selectAll("*").remove();
+    const allSteps = fullSteps.concat(halfSteps).sort((a, b) => a.step - b.step);
+    allSteps.forEach(d => {
+      // Override only step 0 to be 8 mm in the table
+      const fontSize = d.step === 0 ? 8 : d.size;
+
+      const lineHeightMm = fontSize * 1.2;
+      const lineHeightPt = lineHeightMm * mmToPt;
+      const xHeight = xFromFont(fontSize);
+      const capHeight = capFromFont(fontSize);
+      const visus01 = getVisusDistance(xHeight, 0.1);
+      const visus03 = getVisusDistance(xHeight, 0.3);
+      const color01 = getDistanceColor(visus01);
+      const color03 = getDistanceColor(visus03);
+
       tableBody.append("tr").html(
         `<td>${d.step}</td>
          <td>${fontSize.toFixed(0)}</td>
