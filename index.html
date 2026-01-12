@@ -97,7 +97,7 @@
 <body>
   <h1>Type Scale Visualization</h1>
 
-  <p>The base font size is 12&ThinSpace;mm. Hover over the graph to see the value at each step and click to copy!</p>
+  <p>The base font size is 12&ThinSpace;mm. Hover over the graph to see the value at each step. <!--and click to copy! --></p>
 
   <svg id="chart" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"></svg>
 
@@ -176,8 +176,18 @@
   const maxStep = 13;
   const mmToPt = 2.8346;
 
-  // displayed step = internal + 2
+  // Steps are 0.5 difference each, displayed step = internal step + 2
+  const stepResolution = 0.5;
   const stepOffset = 2;
+
+  function quantizeStep(step, res = stepResolution) {
+    return Math.round(step / res) * res;
+  }
+
+  function formatDisplayStepFromInternalStep(step) {
+    const display = step + stepOffset;
+    return Number.isInteger(step) ? display.toFixed(0) : display.toFixed(1);
+  }
 
   const svg = d3.select("#chart");
   const width = 800, height = 400;
@@ -329,13 +339,11 @@
 
     const y = d3.scaleLinear().domain([0, d3.max(curvePoints, d => d.size)]).range([innerHeight, 0]);
 
+    const tickVals = d3.range(0, maxStep + stepResolution, stepResolution);
     xAxisGroup.call(
       d3.axisBottom(x)
-        .ticks(maxStep * 2)
-        .tickFormat(d => {
-          const display = d + stepOffset;
-          return Number.isInteger(d) ? display : display.toFixed(1);
-        })
+        .tickValues(tickVals)
+        .tickFormat(formatDisplayStepFromInternalStep)
     );
 
     yAxisGroup.call(d3.axisLeft(y));
@@ -368,10 +376,8 @@
     const xHeightByDisplayStep = new Map();
 
     allSteps.forEach(d => {
-      const fontSize = d.step === 0 ? 8 : d.size;
-      const displayStep = Number.isInteger(d.step)
-        ? (d.step + stepOffset).toFixed(0)
-        : (d.step + stepOffset).toFixed(1);
+      const displayStep = formatDisplayStepFromInternalStep(d.step);
+      const fontSize = displayStep === "2" ? 8 : d.size;
 
       const lineHeightMm = fontSize * 1.2;
       const lineHeightPt = lineHeightMm * mmToPt;
@@ -427,28 +433,36 @@
     svg.on("mousemove", (event) => {
       const [mx] = d3.pointer(event, g.node());
       if (mx < 0 || mx > innerWidth) return;
-      const stepValue = Math.round(x.invert(mx) * 2) / 2;
-      const sizeValue = S(stepValue);
-      const displayStep = stepValue + stepOffset;
 
-      cursorLine.attr("x1", x(stepValue)).attr("x2", x(stepValue)).style("display", null);
+      const stepValue = quantizeStep(x.invert(mx)); // <-- 0.5 steps
+      const sizeValue = S(stepValue);
+      const displayStep = formatDisplayStepFromInternalStep(stepValue);
+
+      cursorLine
+        .attr("x1", x(stepValue))
+        .attr("x2", x(stepValue))
+        .style("display", null);
 
       tooltip.style("display", "block")
         .style("left", (event.pageX + 10) + "px")
         .style("top", (event.pageY - 25) + "px")
         .html(`<strong>size:</strong> ${sizeValue.toFixed(2)} mm<br />
-               <strong>step:</strong> ${displayStep.toFixed(2)}`);
+               <strong>step:</strong> ${displayStep}`);
     });
 
+    /*
+    // Click to copy 
     svg.on("click", (event) => {
       const [mx] = d3.pointer(event, g.node());
       if (mx < 0 || mx > innerWidth) return;
-      const stepValue = Math.round(x.invert(mx) * 4) / 4;
+
+      const stepValue = quantizeStep(x.invert(mx)); // <-- 0.5 steps
       const sizeValue = S(stepValue).toFixed(2);
+
       navigator.clipboard.writeText(sizeValue).then(() => {
         console.log("copied font size: " + sizeValue + " mm");
       });
-    });
+    }); */
 
     svg.on("mouseleave", () => {
       cursorLine.style("display", "none");
