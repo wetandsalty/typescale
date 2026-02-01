@@ -5,170 +5,128 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Type Scale Visualization</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      margin: 40px;
-      background: #fafafa;
-    }
-    h1, h2, h3 { margin-bottom: 1.25em; }
-
-    .controls {
-      display: flex;
-      margin-bottom: 1em;
-      flex-flow: column;
-      justify-content: left;
-      gap: 10px;
-      padding: 12px;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-      max-width: 560px;
-    }
-    .label-input {
-      display: grid;
-      grid-template-columns: 220px 1fr;
-      align-items: center;
-      gap: 10px;
-    }
-    input[type="number"], select {
-      padding: 6px 8px;
-      font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      background: white;
-    }
-    select { min-width: 140px; }
-
-    svg {
-      width: 100%;
-      height: auto;
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-      cursor: pointer;
-      margin: 2em 0;
-    }
-    .line { fill: none; stroke: #00e0e0; stroke-width: 2.5px; }
-    .dot { fill: black; }
-    .half-dot { fill: white; stroke: #00e0e0; stroke-width: 2px; }
-    .base-dot { fill: black; stroke: #00e0e0; stroke-width: 3px; }
-    .cursor-line { stroke: black; stroke-width: 1.5px; stroke-dasharray: 4 2; }
-    .label-graph { font-size: 0.5em; font-weight: 600; }
-    .label-axis { font-size: 0.6em; font-weight: 400; }
-    .tooltip {
-      font-size: 13px;
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid #ccc;
-      padding: 4px 6px;
-      border-radius: 4px;
-      pointer-events: none;
-      position: absolute;
-    }
-
-    .table { margin: 80px 0 0 0; }
-    #table-container, #distance-table-container {
-      margin: 0;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    table {
-      margin-top: 20px;
-      border-collapse: collapse;
-      width: max-content;
-      min-width: 100%;
-      background: #fff;
-    }
-    td, th {
-      border: 1px solid #ccc;
-      padding: 6px 10px;
-      text-align: right;
-      white-space: nowrap;
-    }
-    th { background: #f0f0f0; text-align: center; }
-
-    .distance-section { margin-top: 70px; }
-    .note { color: #555; font-size: 14px; }
-    .sticky-left { text-align: left; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Type Scale Visualization</h1>
+  <div class="content" id="index0">
+    <nav>
+      <ul class="navi">
+        <li>
+          <a href="#index1" class="navlink" title="Typografie-Skala"></a>
+        </li>
+        <li>
+          <a href="#index2" class="navlink" title="Lesbarkeits-Check"></a>
+        </li>
+        <li>
+          <a href="#index3" class="navlink" title="Visualisierung der Skala"></a>
+        </li>
+      </ul>
+    </nav>
 
-  <p>The base font size is 12&ThinSpace;mm. Hover over the graph to see the value at each step. <!--and click to copy! --></p>
+    <section class="intro">
+      <h1>HHA FIS U5 Typografie-Skala</h1>
 
-  <svg id="chart" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"></svg>
+      <p>Auf dieser Seite befinden sich verschiedene Tools zur Berechnung und Darstellung der Schriftgrade des FIS U5, sowie ein Lesbarkeits-Check (auf Basis der Sehschärfe, d.h. des Visus, des Betrachtungs-Abstands und der Anbringungshöhe).</p>
 
-  <section class="table">
-    <h2>Type scale table</h2>
-    <p class="note">
-      * Font size 2 (= 8&ThinSpace;mm) is set manually. It should actually be rounded up from 8.67&ThinSpace;mm to 9&ThinSpace;mm, but we rounded down for now, because otherwise it would just be 1mm difference to font size 2.5
-    </p>
-    <div id="table-container">
-      <table id="type-table">
-        <thead>
-          <tr>
-            <th>Step</th>
-            <th>Font Size (mm)</th>
-            <th>Font Size (pt)</th>
-            <th>Line Height (mm)</th>
-            <th>Line Height (pt)</th>
-            <th>x-Height (mm)</th>
-            <th>Cap Height (mm)</th>
-            <th>Visus 0.1 (m)</th>
-            <th>Visus 0.3 (m)</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+      <p>Die Basis-Schriftgröße, an der sich die Berechnung aller Schriftgrade orientiert, ist der Schriftgrad 3 = 12&ThinSpace;mm.</p>
 
-    <!-- Reading distance table -->
-    <div class="distance-section">
-      <h2>Reading distance table (by mounting height)</h2>
+      <p class="note">
+        * Der Schriftgrade 2 (= 8&ThinSpace;mm) wurde nicht anhand der normalen Berechnung festgelegt. Die berechneten 8,67 mm müssten eigentlich auf 9 mm aufgerundet werden. Wir haben aber abgerundet, da sonst zum Schriftgrad 2,5 nur ein fast nicht wahrnehmbarer Unterschied von 1 mm bestehen würde.
+      </p>
 
-      <div class="controls">
-        <label class="label-input">
-          <span>Anbringungshöhe a (cm)</span>
-          <input type="number" id="mountHeightInput" value="120" min="0" step="1" />
-        </label>
+      <h3>Auf dieser Seite:</h3>
+      <ul class="kapitel">
+        <li>
+          <a href="#index1" class="kapitellink">→ Typografie-Skala</a>
+        </li>
+        <li>
+          <a href="#index2" class="kapitellink">→ Lesbarkeits-Check</a>
+        </li>
+        <li>
+          <a href="#index3" class="kapitellink">→ Visualisierung der Skala</a>
+        </li>
+      </ul>
+    </section>
 
-        <label class="label-input">
-          <span>Schriftgrad (Step)</span>
-          <select id="schriftgradSelect"></select>
-        </label>
+    <section id="index1" class="table">
+      <h2><span class="red">01</span> Schriftgrade der Typografie-Skala</h2>
 
-        <div class="note">
-          g = 90° (fix), h1 = 170&nbsp;cm, h2 = 110&nbsp;cm.
-          (Für Schriftgrad 6,5 und a=120&nbsp;cm liefert das z.B. 0,35–0,71 / 0,081–3,101 / 0,034–7,391&nbsp;m bei 170&nbsp;cm.)
-        </div>
-      </div>
+      <label style="display:inline-flex; gap:.5rem; align-items:center; margin:.5rem 0 1rem;">
+        <input type="checkbox" id="togglePtCols">
+        Schriftgröße und Zeilenhöhe in pt anzeigen
+      </label>
 
-      <div id="distance-table-container">
-        <table id="distance-table">
+      <div id="table-container">
+        <table id="type-table">
           <thead>
             <tr>
-              <th class="sticky-left" rowspan="2">Schriftgrad</th>
-              <th colspan="3">Augenhöhe = 170cm</th>
-              <th colspan="3">Augenhöhe = 110cm</th>
-            </tr>
-            <tr>
-              <th>Visus 0,1</th>
-              <th>Visus 0,3</th>
-              <th>Visus 0,7</th>
-              <th>Visus 0,1</th>
-              <th>Visus 0,3</th>
-              <th>Visus 0,7</th>
+              <th>Grad</th>
+              <th>Schriftgröße (mm)</th>
+              <th class="col-pt">Schriftgr. (pt)</th>
+              <th>Zeilenhöhe (mm)</th>
+              <th class="col-pt">Zeilenh. (pt)</th>
+              <th>x-Höhe (mm)</th>
+              <th>Majuskel (mm)</th>
+              <th>Visus 0.1 (m)</th>
+              <th>Visus 0.3 (m)</th>
             </tr>
           </thead>
-          <tbody id="distance-table-body"></tbody>
+          <tbody></tbody>
         </table>
       </div>
-    </div>
-  </section>
+    </section>
 
+    <section id="index2">
+      <!-- Reading distance table (by mounting height) -->
+        <h2><span class="red">02</span> Lesbarkeits-Check</h2>
+
+        <p>Berechnet den Leseabstand eines Schriftgrads anhand der Anbringungshöhe</p>
+
+        <div class="controls">
+          <label class="label-input">
+            <span>Anbringungshöhe a (cm)</span>
+            <input type="number" id="mountHeightInput" value="120" min="0" step="1" />
+          </label>
+
+          <label class="label-input">
+            <span>Schriftgrad</span>
+            <select id="schriftgradSelect"></select>
+          </label>
+
+          <div class="note">
+            g = 90° (fix), h1 = 170&nbsp;cm, h2 = 110&nbsp;cm.
+            (Für Schriftgrad 6,5 und a=120&nbsp;cm liefert das z.B. 0,35–0,71 / 0,081–3,101 / 0,034–7,391&nbsp;m bei 170&nbsp;cm.)
+          </div>
+        </div>
+
+        <div id="distance-table-container">
+          <table id="distance-table">
+            <thead>
+              <tr>
+                <th class="sticky-left" rowspan="2">Schriftgrad</th>
+                <th colspan="3">Augenhöhe = 170cm</th>
+                <th colspan="3">Augenhöhe = 110cm</th>
+              </tr>
+              <tr>
+                <th>Visus 0,1</th>
+                <th>Visus 0,3</th>
+                <th>Visus 0,7</th>
+                <th>Visus 0,1</th>
+                <th>Visus 0,3</th>
+                <th>Visus 0,7</th>
+              </tr>
+            </thead>
+            <tbody id="distance-table-body"></tbody>
+          </table>
+        </div>
+    </section>
+
+    <section id="index3">
+      <h2 id="index1"><span class="red">03</span> Visualisierung der Skala</h2>
+      <svg id="chart" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"></svg>
+      <a href="#index0" class="back-to-top">↑</a>
+    </section>
+  </div>
 <script>
   const xFactor = 0.5176;
   const capFactor = 0.71680;
@@ -199,9 +157,9 @@
   const yAxisGroup = g.append("g");
   const xAxisGroup = g.append("g").attr("transform", `translate(0,${innerHeight})`);
   g.append("text").attr("x", innerWidth / 2).attr("y", innerHeight + 40)
-    .attr("fill", "black").attr("text-anchor", "middle").attr("class", "label-axis").text("steps");
+    .attr("fill", "black").attr("text-anchor", "middle").attr("class", "label-axis").text("Schriftgrade");
   g.append("text").attr("transform", "rotate(-90)").attr("x", -innerHeight / 2).attr("y", -40)
-    .attr("fill", "black").attr("text-anchor", "middle").attr("class", "label-axis").text("font size");
+    .attr("fill", "black").attr("text-anchor", "middle").attr("class", "label-axis").text("Schriftgröße");
 
   const curveGroup = g.append("path").attr("class", "line");
   const dotsGroup = g.append("g");
@@ -368,7 +326,7 @@
 
     labelsGroup.selectAll(".label-half").data(halfSteps).enter().append("text")
       .attr("x", d => x(d.step) + 5).attr("y", d => y(d.size) - 5)
-      .text(d => Math.round(d.size)).attr("class", "label-graph").attr("fill", "#00a0a0");
+      .text(d => Math.round(d.size)).attr("class", "label-graph").attr("fill", "rgba(0,0,0,0.5");
 
     // Update type table + build xHeight lookup by displayStep
     tableBody.selectAll("*").remove();
@@ -393,14 +351,21 @@
       tableBody.append("tr").html(
         `<td>${displayStep}</td>
          <td>${fontSize.toFixed(0)}</td>
-         <td>${(fontSize * mmToPt).toFixed(2)}</td>
+         <td class="col-pt">${(fontSize * mmToPt).toFixed(2)}</td>
          <td>${lineHeightMm.toFixed(0)}</td>
-         <td>${lineHeightPt.toFixed(2)}</td>
+         <td class="col-pt">${lineHeightPt.toFixed(2)}</td>
          <td>${xHeight.toFixed(2)}</td>
          <td>${capHeight.toFixed(2)}</td>
          <td style="background:${color01}">${visus01.toFixed(2)}</td>
          <td style="background:${color03}">${visus03.toFixed(2)}</td>`
       );
+    });
+
+    //functionality to show table columns with values in pt
+    const togglePtCols = document.getElementById("togglePtCols");
+    const typeTable = document.getElementById("type-table");
+    togglePtCols.addEventListener("change", () => {
+      typeTable.classList.toggle("show", togglePtCols.checked);
     });
 
     // Populate Schriftgrad select once
@@ -449,20 +414,6 @@
         .html(`<strong>size:</strong> ${sizeValue.toFixed(2)} mm<br />
                <strong>step:</strong> ${displayStep}`);
     });
-
-    /*
-    // Click to copy 
-    svg.on("click", (event) => {
-      const [mx] = d3.pointer(event, g.node());
-      if (mx < 0 || mx > innerWidth) return;
-
-      const stepValue = quantizeStep(x.invert(mx)); // <-- 0.5 steps
-      const sizeValue = S(stepValue).toFixed(2);
-
-      navigator.clipboard.writeText(sizeValue).then(() => {
-        console.log("copied font size: " + sizeValue + " mm");
-      });
-    }); */
 
     svg.on("mouseleave", () => {
       cursorLine.style("display", "none");
